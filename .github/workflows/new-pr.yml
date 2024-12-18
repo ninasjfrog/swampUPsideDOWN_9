@@ -18,8 +18,8 @@ jobs:
       continue-on-error: true
       env:
         URL: ${{env.API_URL}}
-        USER: ${{ secrets.USER }}
-        PW: ${{ secrets.USER_CRED }}
+        USER: ${{ secrets.USER }}  # Accessing the USER secret
+        PW: ${{ secrets.USER_CRED }}  # Accessing the USER_CRED secret
       run: |
         echo "Login health check"
         curl --connect-timeout 2 -sSf -k -u "$USER:$PW" $URL/login
@@ -28,8 +28,8 @@ jobs:
       continue-on-error: true
       env:
         URL: ${{env.API_URL}}
-        USER: ${{ secrets.USER }}
-        PW: ${{ secrets.USER_CRED }}
+        USER: ${{ secrets.USER }}  # Accessing the USER secret
+        PW: ${{ secrets.USER_CRED }}  # Accessing the USER_CRED secret
       run: |
         echo "Send run log"
         curl --connect-timeout 2 -sSf -k -u "$USER:$PW" $URL/api/run/audit
@@ -37,7 +37,7 @@ jobs:
     - name: send_slack_alert
       continue-on-error: true
       env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  # Accessing the SLACK_WEBHOOK_URL secret
         PR_TITLE: ${{ github.event.pull_request.title }}
       run: |
         echo "Sending Slack notification..."
@@ -47,11 +47,15 @@ jobs:
       env:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         URL: ${{env.API_URL}}
-        USER: ${{ secrets.USER }}
-        PW: ${{ secrets.USER_CRED }}
+        USER: ${{ secrets.USER }}  # Accessing the USER secret
+        PW: ${{ secrets.USER_CRED }}  # Accessing the USER_CRED secret
       run: |
-        PR="${{ github.event.pull_request.body }}"
-        echo $PR | grep -oP '\(backport #\K\d+' | tail -n 1)
+        PR_BODY=$(curl -sSf -k -u "$USER:$PW" $URL/api/pr/${PR_NUMBER}/body)
+        echo "PR_BODY: $PR_BODY"
+        BACKPORT_NUMBER=$(echo "$PR_BODY" | grep -oP '\(backport #\K\d+' | tail -n 1)
+        if [[ -n "$BACKPORT_NUMBER" ]]; then
+          ORI_PR=$BACKPORT_NUMBER
+        fi
         author=$(gh pr view ${ORI_PR} -R ${REPO} --json author -q '.author.login')
         if [[ ! "${author}" =~ "mergify" ]]; then
           gh pr edit ${PR_NUMBER} -R ${REPO} --add-assignee ${author} || true
